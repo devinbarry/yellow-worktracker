@@ -54,3 +54,6 @@ docs/_build/
 
 # Probably PyCharm stuff
 .idea
+
+# Program data (doesn't need to be public)
+devinbarry_git_log_output.txt
