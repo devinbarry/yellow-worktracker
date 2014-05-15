@@ -55,5 +55,6 @@ docs/_build/
 # Probably PyCharm stuff
 .idea
 
-# Program data (doesn't need to be public)
+# Program data (Input and Output directories)
 gitlog/
+output/
