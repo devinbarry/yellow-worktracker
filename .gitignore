@@ -56,4 +56,4 @@ docs/_build/
 .idea
 
 # Program data (doesn't need to be public)
-devinbarry_git_log_output.txt
+gitlog/
