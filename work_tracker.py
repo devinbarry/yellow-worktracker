@@ -1,6 +1,7 @@
 __author__ = 'devinbarry@users.noreply.github.com'
 
 import re
+import click
 from datetime import datetime, timedelta
 from collections import OrderedDict
 from dateutil.parser import parse
@@ -8,6 +9,17 @@ from redmine import Redmine
 from pandas import DataFrame
 from pyactiveresource.activeresource import ActiveResource
 
+USERNAME = 'test'
+PASSWORD = 'test'
+
+
+@click.command()
+@click.option('--username', prompt='Redmine username', help='Redmine username', required=True)
+@click.option('--password', prompt='Redmine password', help='Redmine password', required=True)
+def main(username, password):
+    USERNAME = username
+    PASSWORD = password
+    _main()
 
 
 class Issue(ActiveResource):
@@ -221,4 +233,4 @@ def _main():
 
 if __name__ == '__main__':
     venv = "source /Library/Frameworks/Python.framework/Versions/2.7/bin/virtualenvwrapper.sh"
-    _main()
+    main()
