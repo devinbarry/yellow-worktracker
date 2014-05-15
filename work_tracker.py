@@ -16,10 +16,12 @@ PASSWORD = 'test'
 @click.command()
 @click.option('--username', prompt='Redmine username', help='Redmine username', required=True)
 @click.option('--password', prompt='Redmine password', help='Redmine password', required=True)
-def main(username, password):
+@click.option('--file', prompt='Git log export text file',
+              help='The file which you have exported git log to', required=True)
+def main(username, password, file):
     USERNAME = username
     PASSWORD = password
-    _main()
+    _main(file_name=file)
 
 
 class Issue(ActiveResource):
@@ -163,8 +165,8 @@ def _pad_other_lists(weekday_list, date, c1, c2):
     return padded_c1, padded_c2
 
 
-def _main():
-    f = open('devinbarry_git_log_output2.txt', 'r')
+def _main(file_name):
+    f = open(file_name, 'r')
 
     output = OrderedDict()
 
