@@ -1,12 +1,14 @@
 __author__ = 'devinbarry@users.noreply.github.com'
 
 import re
-import os.path, time
+import os.path
 import click
 from tqdm import *
+from datetime import date
 from datetime import datetime, timedelta
 from collections import OrderedDict
 from dateutil.parser import parse
+from dateutil.relativedelta import relativedelta
 from redmine import Redmine
 from pandas import DataFrame
 from pyactiveresource.activeresource import ActiveResource
@@ -29,28 +31,36 @@ class Issue(ActiveResource):
 def main(username, password, file):
     global USERNAME
     global PASSWORD
-
+    # Set the globals for username and password from the input arguments
     USERNAME = username
     PASSWORD = password
-
-    print('Username is "{0}"'.format(USERNAME))
-    print('Password is "{0}"'.format(PASSWORD))
 
     # Set the username and password for the Issue class
     Issue._user = USERNAME
     Issue._password = PASSWORD
-
-    modified = _get_file_modification_date(file)
-    _main(file_name=file, file_modification_date=modified)
+    _main(file_name=file)
 
 
-def _get_file_modification_date(file):
+def _main(file_name):
+    """
+    Runs the two main sections of the program.
+    :param file_name: The file name of the git log file to process
+    :return:
+    """
+    if os.path.exists(file_name):
+        output = _read_and_process_file(file_name)
+        _process_output_dictionary(output)
+    else:
+        print('File does not exist!')
+
+
+def _get_file_modification_date(file_name):
     """
     Get the last modification date of the file
-    :param file: any file
+    :param file_name: any file
     :return: datetime.date()
     """
-    dttf = datetime.fromtimestamp(os.path.getmtime(file))
+    dttf = datetime.fromtimestamp(os.path.getmtime(file_name))
     return dttf.date()
 
 
@@ -79,6 +89,7 @@ def _check_date_string(date_string):
     """Make sure that the date string is from 2013 or 2014
     and make sure that the day is a weekday.
     """
+    # TODO improve hardcoded years here
     year_2014 = '2014' in date_string
     year_2013 = '2013' in date_string
     assert year_2013 or year_2014
@@ -176,7 +187,7 @@ def _build_list_of_subjects(dev_issues, num_list):
 
 
 def _write_columns_to_excel(c1, c2, c3):
-    weekday_list = _build_list_of_weekdays()
+    weekday_list = _build_date_list_weeks()
     padded_c2, padded_c3 = _pad_other_lists(weekday_list, c1, c2, c3)
 
     dtstr = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -186,29 +197,43 @@ def _write_columns_to_excel(c1, c2, c3):
     df.to_excel(file_name, sheet_name='sheet1', index=False)
 
 
-def _build_list_of_weekdays():
-    """This function has hardcoded dates. Dates in here should be
-    determined automatically.
+def _build_date_list_weeks(start_date=datetime(2013, 10, 7)):
     """
-    # TODO fix hardcoded dates
+    Build a list of all dates from start_date through to two weeks
+    from now.
+    :param start_date: The earliest date in the date list
+    :return:
+    """
     weekday_list = list()
-    start_date = datetime(2013, 10, 7)  # Monday 7th Oct 2013
-    date = start_date
+    end_date = datetime.now() + relativedelta(weeks=2)  # End date is two weeks from now
+    date_ = start_date  # Default is Monday 7th Oct 2013
     count = 0
-    while date < datetime(2014, 5, 31):
-        weekday_list.append(date.date())
+    while date_ < end_date:
+
+        # Add the next date to the list
+        weekday_list.append(date_.date())
         count += 1
-        date += timedelta(days=1)
+        date_ += timedelta(days=1)
+
+        # Each week create a seperation line
         if count == 7:
             count = 0
             weekday_list.append('')
     return weekday_list
 
 
-def _pad_other_lists(weekday_list, date, c1, c2):
+def _pad_other_lists(weekday_list, date_, c1, c2):
+    """
+    Pad the other lists in the same way as the date list is padded.
+    :param weekday_list:
+    :param date_:
+    :param c1:
+    :param c2:
+    :return:
+    """
     padded_c1 = list()
     padded_c2 = list()
-    counter_max = len(date)
+    counter_max = len(date_)
     counter = 0
     for weekday_value in weekday_list:
         if weekday_value != '':
@@ -220,7 +245,7 @@ def _pad_other_lists(weekday_list, date, c1, c2):
                 padded_c2.append('')
                 continue
 
-            if weekday_value == date[counter]:
+            if weekday_value == date_[counter]:
                 padded_c1.append(c1[counter])
                 padded_c2.append(c2[counter])
                 counter += 1
@@ -258,33 +283,35 @@ def _get_words_and_date(line, file_modification_date):
     return actual_date, words
 
 
-def _main(file_name, file_modification_date):
+def _read_and_process_file(file_name):
+    """
+    Read the input file and process it into a dictionary
+    where the date associated with each line is the the dictionary key
+    and the text associated with each line is the dictionary value.
+    :param file_name:
+    :return: the output dictionary
+    """
+    modified = _get_file_modification_date(file_name)
+
     f = open(file_name, 'r')
-
     output = OrderedDict()
-
-    server = Redmine('http://redmine.finda.co.nz', username=USERNAME, password=PASSWORD)
-    project = server.project.get('sem')
-    devin = server.user.get('current')
-    dev_issues = server.issue.filter(project_id=project.id)
-
-    # for issue in dev_issues:
-    #     print('{} - {}'.format(issue.id, issue.subject))
 
     # Process file line by line
     count = 0
-    line = f.readline()
+    line = ' '
     while line != '':
-        count += 1
-        line = f.readline()
-        line = line.strip()
+        # Strip whitespace from lines we read
+        line = f.readline().strip()
+        count += 1  # Increment the line count
 
         # Skip blank lines
         if not line:
             continue
 
-        actual_date, words = _get_words_and_date(line, file_modification_date)
+        # Process line into a date and "important words"
+        actual_date, words = _get_words_and_date(line, modified)
 
+        # Build the dictionary
         try:
             output[actual_date].extend(words)
         except KeyError:
@@ -293,6 +320,24 @@ def _main(file_name, file_modification_date):
 
     print('Processed {} lines'.format(count))
     f.close()
+
+    return output
+
+
+def _process_output_dictionary(output):
+    """
+    Output is the processed dictionary of lines that comes from the
+    git output file.
+    :param output:
+    :return:
+    """
+    server = Redmine('http://redmine.finda.co.nz', username=USERNAME, password=PASSWORD)
+    project = server.project.get('sem')
+    devin = server.user.get('current')
+    dev_issues = server.issue.filter(project_id=project.id)
+
+    # for issue in dev_issues:
+    #     print('{} - {}'.format(issue.id, issue.subject))
 
     for k in output.keys():
         # remove dupes
