@@ -58,3 +58,4 @@ docs/_build/
 # Program data (Input and Output directories)
 gitlog/
 output/
+scripts/
